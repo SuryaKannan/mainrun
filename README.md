@@ -49,6 +49,35 @@ cat mainrun/logs/baseline.log
 # 5. Start optimizing!
 ```
 
+## Optional
+
+### CUDA-Enabled Dev Container
+
+If you have access to an NVIDIA GPU, you can use the CUDA dev container at `.devcontainer/cuda/` for hardware-accelerated training. It is built on `nvidia/cuda:12.6.0-cudnn-devel-ubuntu22.04` and launches with `--gpus all` so the container has full access to the host's GPUs.
+
+#### Prerequisites
+
+- A host with an NVIDIA GPU and a recent driver (CUDA 12.6+ compatible).
+- [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) installed on the host. Without it, the container will fail to start.
+- Docker Desktop on macOS does **not** support GPU passthrough — run on a Linux host (local or remote via VS Code's Remote-SSH) for GPU access.
+
+#### Launching
+
+1. Open the repository in VS Code.
+2. Run **Dev Containers: Reopen in Container** from the command palette.
+3. When prompted, choose the **Mainrun (CUDA)** configuration (this corresponds to `.devcontainer/cuda/`).
+
+#### Verifying GPU access
+
+Once inside the container:
+
+```bash
+nvidia-smi
+python3 -c "import torch; print(torch.cuda.is_available(), torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'no gpu')"
+```
+
+If both report your GPU, you're set — `task train` will pick it up automatically.
+
 ## Key Commands
 You will only need two main commands for this assessment:
 
