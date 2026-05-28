@@ -75,6 +75,10 @@ nvidia-smi
 
 If it prints your GPU, you're set. `task train` will pick it up automatically.
 
+#### Customising
+
+The CUDA dev container uses NVIDIA's minimal `base` image, which is enough to run the stock PyTorch wheel against your host GPU. If you want to do something fancier (compile CUDA extensions from source, use system cuDNN, build custom kernels, etc.), edit `.devcontainer/cuda/Dockerfile` and swap the base image for a heavier variant (`runtime`, `devel`, or one of the `cudnn` flavours).
+
 ## Key Commands
 You will only need two main commands for this assessment:
 
