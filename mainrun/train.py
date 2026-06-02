@@ -136,11 +136,20 @@ class GPTConfig:
     d_model: int
     dropout: float
 
+def rotate_half(x: torch.Tensor) -> torch.Tensor:
+    x1, x2 = x.chunk(2, dim=-1)
+    return torch.cat((-x2, x1), dim=-1)
+
+def apply_rotary(x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.Tensor:
+    # x: (B, n_head, T, head_dim); cos/sin: (T, head_dim), broadcast over B, n_head
+    return x * cos + rotate_half(x) * sin
+
 class CausalSelfAttention(nn.Module):
     def __init__(self, cfg: GPTConfig):
         super().__init__()
         assert cfg.d_model % cfg.n_head == 0
         self.head_dim = cfg.d_model // cfg.n_head
+        assert self.head_dim % 2 == 0, "RoPE needs an even head_dim"
         self.n_head   = cfg.n_head
         self.qkv = nn.Linear(cfg.d_model, 3 * cfg.d_model)
         self.proj = nn.Linear(cfg.d_model, cfg.d_model)
@@ -148,11 +157,21 @@ class CausalSelfAttention(nn.Module):
         self.attn_drop = nn.Dropout(cfg.dropout)
         self.resid_drop= nn.Dropout(cfg.dropout)
         self.register_buffer("tril", torch.tril(torch.ones(cfg.block_size, cfg.block_size)))
+        # Rotary positional embedding (RoPE): encode position by rotating q/k
+        # inside attention, rather than adding a learned positional vector.
+        inv_freq = 1.0 / (10000.0 ** (torch.arange(0, self.head_dim, 2).float() / self.head_dim))
+        pos = torch.arange(cfg.block_size).float()
+        freqs = torch.outer(pos, inv_freq)        # (block_size, head_dim/2)
+        emb = torch.cat((freqs, freqs), dim=-1)   # (block_size, head_dim)
+        self.register_buffer("rope_cos", emb.cos())
+        self.register_buffer("rope_sin", emb.sin())
 
     def forward(self, x: torch.Tensor):
         B, T, C = x.size()
         qkv = self.qkv(x).view(B, T, 3, self.n_head, self.head_dim).transpose(1, 3)
         q, k, v = qkv[..., 0, :, :], qkv[..., 1, :, :], qkv[..., 2, :, :]
+        cos, sin = self.rope_cos[:T], self.rope_sin[:T]
+        q, k = apply_rotary(q, cos, sin), apply_rotary(k, cos, sin)
         att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
         att = att.masked_fill(self.tril[:T, :T] == 0, float("-inf"))
         att = F.softmax(att, dim=-1)
@@ -190,7 +209,6 @@ class GPT(nn.Module):
         super().__init__()
         self.cfg = cfg
         self.token_emb = nn.Embedding(cfg.vocab_size, cfg.d_model)
-        self.pos_emb   = nn.Parameter(torch.zeros(1, cfg.block_size, cfg.d_model))
         self.drop      = nn.Dropout(cfg.dropout)
         self.blocks    = nn.ModuleList([Block(cfg) for _ in range(cfg.n_layer)])
         self.ln_f      = nn.LayerNorm(cfg.d_model)
@@ -216,8 +234,7 @@ class GPT(nn.Module):
     def forward(self, idx: torch.Tensor, targets: torch.Tensor | None = None):
         B, T = idx.size()
         tok = self.token_emb(idx)
-        pos = self.pos_emb[:, :T, :]
-        x = self.drop(tok + pos)
+        x = self.drop(tok)
         for block in self.blocks: x = block(x)
         x = self.ln_f(x)
         logits = self.head(x)
