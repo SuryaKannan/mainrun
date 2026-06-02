@@ -21,6 +21,10 @@ tasks:
     cmds:
       - python3 -m unittest discover -s tests
 
+  sweep:
+    cmds:
+      - python3 analysis/sweep.py {{if .CLI_ARGS}}{{.CLI_ARGS}}{{else}}sweeps/lr.yaml{{end}}
+
   submit:
     deps: [checkpoint]
     dir: scripts

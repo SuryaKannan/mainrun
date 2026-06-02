@@ -1,0 +1,8 @@
+# Sweep: AdamW weight decay, at the best LR. Update base.lr if the LR sweep moves it.
+# Run from the repo root:  task sweep -- sweeps/weight_decay.yaml
+base:
+  lr: 0.001
+runs:
+  - {name: wd_0,    weight_decay: 0.0}
+  - {name: wd_0p05, weight_decay: 0.05}
+  - {name: wd_0p1,  weight_decay: 0.1}

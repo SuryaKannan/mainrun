@@ -85,6 +85,43 @@ You will only need two main commands for this assessment:
 - `task train`: The primary command. It first runs a checkpoint and then executes the full training pipeline in train.py. You have complete freedom to refactor or extend the code, but all functionality must be accessible through this single script.
 - `task submit`: When you are ready, this command will create a final checkpoint, zip up your entire repository (including all code and logs), and upload it to Maincode's evaluation system for review.
 
+## Development & Experiment Tooling
+
+This submission adds tooling on top of the base commands, for testing and reproducible experimentation.
+
+- `task test`: run the unit smoke-test suite in `tests/`. It guards the model's parameter-count invariant, the per-title attention mask, batching, and the config loader. The same suite runs in CI on every pull request via `.github/workflows/tests.yml`.
+- `task sweep [-- <spec>]`: run a reproducible hyperparameter sweep from a YAML spec (defaults to `sweeps/lr.yaml`). Each variation trains once into its own log under `mainrun/logs/`, then a leaderboard sorted by validation loss is printed.
+
+### Config-driven training
+
+Hyperparameters live in `mainrun/config.py`. Any field can be overridden per run with a YAML file, without editing code:
+
+```bash
+python train.py --config <file.yaml>   # run from the mainrun/ directory
+```
+
+With no `--config`, `train.py` uses the canonical defaults (the submitted configuration), so `task train` is unchanged.
+
+### Sweep specs
+
+A spec has an optional `base` map (applied to every run) and a list of `runs` (each a `name` plus field overrides):
+
+```yaml
+base:
+  lr: 0.001
+runs:
+  - {name: wd_0,   weight_decay: 0.0}
+  - {name: wd_0p1, weight_decay: 0.1}
+```
+
+Provided specs (run from the repo root, inside the devcontainer):
+
+```bash
+task sweep -- sweeps/lr.yaml            # peak learning rate
+task sweep -- sweeps/warmup.yaml        # warmup fraction
+task sweep -- sweeps/weight_decay.yaml  # AdamW weight decay
+```
+
 ## Evaluation
 Submissions will be evaluated on:
 

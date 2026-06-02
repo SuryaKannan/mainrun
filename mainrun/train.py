@@ -1,44 +1,24 @@
 import utils  # noqa: F401, checks if we are in devcontainer
+import argparse
 import random
 import time
-from dataclasses import dataclass
 
 import torch
 from torch.nn import functional as F
 from tqdm import tqdm
 
+from config import load_hyperparameters
 from logging_utils import configure_logging
 from data import get_titles, get_batch, iter_full_split, train_tokenizer, BPETokenizer
 from model import GPTConfig, GPT
 
 
-@dataclass
-class Hyperparameters:
-    block_size: int = 128
-    batch_size: int = 64
-    vocab_size: int = 16_000
-    n_layer: int = 6
-    n_head: int = 8
-    d_model: int = 512
-    dropout: float = 0.1
-    lr: float = 1e-3
-    weight_decay: float = 0.0
-    warmup_frac: float = 0.1
-    evals_per_epoch: int = 3
-
-    epochs: int = 7
-    seed: int = 1337
-    num_titles: int = 100_000
-    val_frac: float = 0.10
-    log_file: str = "./logs/mainrun.log"
-
-
 logger = None
 
 
-def main() -> None:
-    """Initialise training loop on Hacker News titles, logging metrics to the configured file."""
-    args = Hyperparameters()
+def main(config_path: str | None = None) -> None:
+    """Train the GPT on Hacker News titles, logging metrics to the configured file."""
+    args = load_hyperparameters(config_path)
     torch.manual_seed(args.seed)
     random.seed(args.seed)
 
@@ -134,8 +114,12 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Train the Mainrun GPT.")
+    parser.add_argument("--config", default=None,
+                        help="optional YAML file with hyperparameter overrides (for sweeps)")
+    cli = parser.parse_args()
     try:
-        main()
+        main(cli.config)
     finally:
         if logger and hasattr(logger, 'file_handler'):
             logger.file_handler.close()

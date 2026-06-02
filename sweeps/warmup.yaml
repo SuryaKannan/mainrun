@@ -1,0 +1,9 @@
+# Sweep: warmup fraction, at the best LR. Update base.lr if the LR sweep moves it.
+# Run from the repo root:  task sweep -- sweeps/warmup.yaml
+base:
+  lr: 0.001
+runs:
+  - {name: warmup_0p03, warmup_frac: 0.03}
+  - {name: warmup_0p05, warmup_frac: 0.05}
+  - {name: warmup_0p1,  warmup_frac: 0.1}
+  - {name: warmup_0p15, warmup_frac: 0.15}
