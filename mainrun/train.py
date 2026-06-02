@@ -144,6 +144,7 @@ class CausalSelfAttention(nn.Module):
         self.n_head   = cfg.n_head
         self.qkv = nn.Linear(cfg.d_model, 3 * cfg.d_model)
         self.proj = nn.Linear(cfg.d_model, cfg.d_model)
+        self.proj.is_residual_proj = True  # writes back into the residual stream
         self.attn_drop = nn.Dropout(cfg.dropout)
         self.resid_drop= nn.Dropout(cfg.dropout)
         self.register_buffer("tril", torch.tril(torch.ones(cfg.block_size, cfg.block_size)))
@@ -169,6 +170,7 @@ class MLP(nn.Module):
             nn.Linear(4 * cfg.d_model, cfg.d_model),
             nn.Dropout(cfg.dropout),
         )
+        self.net[2].is_residual_proj = True  # writes back into the residual stream
     def forward(self, x): return self.net(x)
 
 class Block(nn.Module):
@@ -195,6 +197,13 @@ class GPT(nn.Module):
         self.head      = nn.Linear(cfg.d_model, cfg.vocab_size, bias=False)
 
         self.apply(self._init_weights)
+        # GPT-2 residual scaling: shrink the projections that write into the
+        # residual stream by 1/sqrt(2 * n_layer) so its variance stays ~constant
+        # with depth at init (2 = attn proj + mlp proj per block).
+        residual_std = 0.02 / math.sqrt(2 * cfg.n_layer)
+        for module in self.modules():
+            if getattr(module, "is_residual_proj", False):
+                nn.init.normal_(module.weight, mean=0.0, std=residual_std)
         self.head.weight = self.token_emb.weight
 
     @staticmethod
