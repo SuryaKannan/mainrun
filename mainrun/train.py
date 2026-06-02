@@ -135,6 +135,7 @@ class GPTConfig:
     n_head: int
     d_model: int
     dropout: float
+    eos_id: int
 
 def rotate_half(x: torch.Tensor) -> torch.Tensor:
     x1, x2 = x.chunk(2, dim=-1)
@@ -156,7 +157,6 @@ class CausalSelfAttention(nn.Module):
         self.proj.is_residual_proj = True  # writes back into the residual stream
         self.attn_drop = nn.Dropout(cfg.dropout)
         self.resid_drop= nn.Dropout(cfg.dropout)
-        self.register_buffer("tril", torch.tril(torch.ones(cfg.block_size, cfg.block_size)))
         # Rotary positional embedding (RoPE): encode position by rotating q/k
         # inside attention, rather than adding a learned positional vector.
         inv_freq = 1.0 / (10000.0 ** (torch.arange(0, self.head_dim, 2).float() / self.head_dim))
@@ -166,14 +166,14 @@ class CausalSelfAttention(nn.Module):
         self.register_buffer("rope_cos", emb.cos())
         self.register_buffer("rope_sin", emb.sin())
 
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: torch.Tensor, attn_mask: torch.Tensor):
         B, T, C = x.size()
         qkv = self.qkv(x).view(B, T, 3, self.n_head, self.head_dim).transpose(1, 3)
         q, k, v = qkv[..., 0, :, :], qkv[..., 1, :, :], qkv[..., 2, :, :]
         cos, sin = self.rope_cos[:T], self.rope_sin[:T]
         q, k = apply_rotary(q, cos, sin), apply_rotary(k, cos, sin)
         att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
-        att = att.masked_fill(self.tril[:T, :T] == 0, float("-inf"))
+        att = att + attn_mask   # additive mask: 0 where allowed, -inf where blocked (causal + per-title)
         att = F.softmax(att, dim=-1)
         att = self.attn_drop(att)
         y = att @ v
@@ -199,8 +199,8 @@ class Block(nn.Module):
         self.ln2 = nn.LayerNorm(cfg.d_model)
         self.attn = CausalSelfAttention(cfg)
         self.mlp  = MLP(cfg)
-    def forward(self, x):
-        x = x + self.attn(self.ln1(x))
+    def forward(self, x, attn_mask):
+        x = x + self.attn(self.ln1(x), attn_mask)
         x = x + self.mlp(self.ln2(x))
         return x
 
@@ -233,9 +233,19 @@ class GPT(nn.Module):
 
     def forward(self, idx: torch.Tensor, targets: torch.Tensor | None = None):
         B, T = idx.size()
+        # Document attention mask: each token attends only within its own title
+        # (segments split at <eos>) and only to the past (causal). Derived from the
+        # input ids, so evaluate() and the data pipeline stay untouched.
+        eos = idx == self.cfg.eos_id
+        seg = eos.cumsum(dim=1) - eos.long()              # (B, T) title index per position
+        same_seg = seg.unsqueeze(2) == seg.unsqueeze(1)   # (B, T, T)
+        causal = torch.ones(T, T, dtype=torch.bool, device=idx.device).tril()
+        allowed = causal.unsqueeze(0) & same_seg          # (B, T, T)
+        attn_mask = torch.zeros(B, 1, T, T, device=idx.device).masked_fill(
+            ~allowed.unsqueeze(1), float("-inf"))
         tok = self.token_emb(idx)
         x = self.drop(tok)
-        for block in self.blocks: x = block(x)
+        for block in self.blocks: x = block(x, attn_mask)
         x = self.ln_f(x)
         logits = self.head(x)
         if targets is None:
@@ -266,6 +276,7 @@ def main():
     val_text = eos_token.join(val_titles) + eos_token
     train_ids = torch.tensor(tok.encode(train_text), dtype=torch.long)
     val_ids = torch.tensor(tok.encode(val_text), dtype=torch.long)
+    eos_id = tok.tk.token_to_id(eos_token)
     
     batches = len(train_ids) // (args.block_size * args.batch_size)
     max_steps = args.epochs * batches
@@ -284,6 +295,7 @@ def main():
         n_head     = args.n_head,
         d_model    = args.d_model,
         dropout    = args.dropout,
+        eos_id     = eos_id,
     )
     model = GPT(cfg).to(device)
     model_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
