@@ -17,6 +17,10 @@ tasks:
     cmds:
       - python3 train.py
 
+  test:
+    cmds:
+      - python3 -m unittest discover -s tests
+
   submit:
     deps: [checkpoint]
     dir: scripts
