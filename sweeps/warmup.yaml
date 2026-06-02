@@ -4,8 +4,10 @@ base:
   lr: 0.001
   weight_decay: 0.1
 runs:
-  - {name: warmup_0,    warmup_frac: 0.0}
-  - {name: warmup_0p03, warmup_frac: 0.03}
-  - {name: warmup_0p05, warmup_frac: 0.05}
   - {name: warmup_0p1,  warmup_frac: 0.1}
   - {name: warmup_0p15, warmup_frac: 0.15}
+  - {name: warmup_0p2,  warmup_frac: 0.2}
+  - {name: warmup_0p25, warmup_frac: 0.25}
+  - {name: warmup_0p3,  warmup_frac: 0.3}
+  - {name: warmup_0p35, warmup_frac: 0.35}
+  - {name: warmup_0p4,  warmup_frac: 0.4}
