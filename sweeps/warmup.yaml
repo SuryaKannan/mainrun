@@ -2,7 +2,9 @@
 # Run from the repo root:  task sweep -- sweeps/warmup.yaml
 base:
   lr: 0.001
+  weight_decay: 0.1
 runs:
+  - {name: warmup_0,    warmup_frac: 0.0}
   - {name: warmup_0p03, warmup_frac: 0.03}
   - {name: warmup_0p05, warmup_frac: 0.05}
   - {name: warmup_0p1,  warmup_frac: 0.1}
