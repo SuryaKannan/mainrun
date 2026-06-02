@@ -183,14 +183,17 @@ class CausalSelfAttention(nn.Module):
 class MLP(nn.Module):
     def __init__(self, cfg: GPTConfig):
         super().__init__()
-        self.net = nn.Sequential(
-            nn.Linear(cfg.d_model, 4 * cfg.d_model),
-            nn.GELU(),
-            nn.Linear(4 * cfg.d_model, cfg.d_model),
-            nn.Dropout(cfg.dropout),
-        )
-        self.net[2].is_residual_proj = True  # writes back into the residual stream
-    def forward(self, x): return self.net(x)
+        # SwiGLU: down(silu(gate(x)) * up(x)). Hidden scaled to ~2/3 of 4*d_model
+        # so the 3-matrix gated MLP keeps ~the same param count as a 2-matrix one.
+        hidden = int(8 * cfg.d_model / 3)
+        hidden = 64 * ((hidden + 63) // 64)   # round up to a multiple of 64
+        self.gate = nn.Linear(cfg.d_model, hidden)
+        self.up   = nn.Linear(cfg.d_model, hidden)
+        self.down = nn.Linear(hidden, cfg.d_model)
+        self.down.is_residual_proj = True  # writes back into the residual stream
+        self.drop = nn.Dropout(cfg.dropout)
+    def forward(self, x):
+        return self.drop(self.down(F.silu(self.gate(x)) * self.up(x)))
 
 class Block(nn.Module):
     def __init__(self, cfg: GPTConfig):
