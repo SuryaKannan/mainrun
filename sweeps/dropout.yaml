@@ -2,8 +2,9 @@
 # winning warmup_frac to base (if it isn't 0.1).
 # Run from the repo root:  task sweep -- sweeps/dropout.yaml
 base:
-  lr: 0.001
+  lr: 0.0015
   weight_decay: 0.1
+  warmup_frac: 0.6
 runs:
   - {name: dropout_0p1,  dropout: 0.1}
   - {name: dropout_0p15, dropout: 0.15}
