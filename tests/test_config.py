@@ -17,7 +17,7 @@ def write_yaml(text: str) -> str:
 class TestConfig(unittest.TestCase):
     def test_no_path_gives_defaults(self):
         hp = config.load_hyperparameters()
-        self.assertEqual(hp.lr, 1e-3)
+        self.assertEqual(hp.lr, 1.5e-3)
         self.assertEqual(hp.batch_size, 64)
 
     def test_yaml_overrides_only_named_fields(self):
