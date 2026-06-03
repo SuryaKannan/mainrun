@@ -1,0 +1,9 @@
+# Sweep: peak learning rate on the final architecture (RoPE + per-title mask).
+# Run from the repo root:  task sweep -- sweeps/lr.yaml
+runs:
+  - {name: lr_5e-4,   lr: 0.0005}
+  - {name: lr_7e-4,   lr: 0.0007}
+  - {name: lr_1e-3,   lr: 0.001}
+  - {name: lr_1p3e-3, lr: 0.0013}
+  - {name: lr_1p6e-3, lr: 0.0016}
+  - {name: lr_2e-3,   lr: 0.002}

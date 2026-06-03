@@ -1,0 +1,15 @@
+# 2D grid over the interacting pair (peak LR x warmup), at wd 0.1.
+# Disentangles "higher peak LR" from "longer warmup" now that the 1D sweeps
+# showed they interact. Run from the repo root:  task sweep -- sweeps/lr_warmup_grid.yaml
+base:
+  weight_decay: 0.1
+runs:
+  - {name: g_1e3_w0p4,   lr: 0.001,  warmup_frac: 0.4}
+  - {name: g_1e3_w0p5,   lr: 0.001,  warmup_frac: 0.5}
+  - {name: g_1e3_w0p6,   lr: 0.001,  warmup_frac: 0.6}
+  - {name: g_1p5e3_w0p4, lr: 0.0015, warmup_frac: 0.4}
+  - {name: g_1p5e3_w0p5, lr: 0.0015, warmup_frac: 0.5}
+  - {name: g_1p5e3_w0p6, lr: 0.0015, warmup_frac: 0.6}
+  - {name: g_2e3_w0p4,   lr: 0.002,  warmup_frac: 0.4}
+  - {name: g_2e3_w0p5,   lr: 0.002,  warmup_frac: 0.5}
+  - {name: g_2e3_w0p6,   lr: 0.002,  warmup_frac: 0.6}
