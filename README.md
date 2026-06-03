@@ -117,9 +117,11 @@ runs:
 Provided specs (run from the repo root, inside the devcontainer):
 
 ```bash
-task sweep -- sweeps/lr.yaml            # peak learning rate
-task sweep -- sweeps/warmup.yaml        # warmup fraction
-task sweep -- sweeps/weight_decay.yaml  # AdamW weight decay
+task sweep -- sweeps/lr.yaml             # peak learning rate
+task sweep -- sweeps/warmup.yaml         # warmup fraction
+task sweep -- sweeps/weight_decay.yaml   # AdamW weight decay
+task sweep -- sweeps/dropout.yaml        # dropout
+task sweep -- sweeps/lr_warmup_grid.yaml # learning-rate x warmup grid
 ```
 
 ## Evaluation
